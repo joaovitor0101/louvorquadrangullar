@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Search, Music, Users, Calendar, ArrowUp, ArrowDown, Wand2, Mic2, Guitar, Drum } from 'lucide-react';
-import { Service, Song, Musician, LoadingState } from '../types';
-import { fetchSongDetails, suggestSetlist } from '../services/geminiService';
+import { Plus, Trash2, Music, Users, Calendar, ArrowUp, ArrowDown, Mic2, Guitar, Drum, Save, FileText } from 'lucide-react';
+import { Service, Song, Musician } from '../types';
 import { Button } from './ui/Button';
 
 interface AdminPanelProps {
@@ -10,18 +9,23 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ service, setService }) => {
-  const [songQuery, setSongQuery] = useState('');
-  const [loadingSong, setLoadingSong] = useState(LoadingState.IDLE);
+  // Estado para Músicos
   const [newMusicianName, setNewMusicianName] = useState('');
   const [newMusicianRole, setNewMusicianRole] = useState('Voz');
-  const [suggestionTheme, setSuggestionTheme] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  // Estado para Nova Música (Manual)
+  const [songTitle, setSongTitle] = useState('');
+  const [songArtist, setSongArtist] = useState('');
+  const [songKey, setSongKey] = useState('');
+  const [songBpm, setSongBpm] = useState('');
+  const [songContent, setSongContent] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const handleUpdateService = (field: keyof Service, value: any) => {
     setService(prev => ({ ...prev, [field]: value }));
   };
 
+  // --- Lógica de Músicos ---
   const handleAddMusician = () => {
     if (!newMusicianName.trim()) return;
     const newMusician: Musician = {
@@ -37,28 +41,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ service, setService }) =
     handleUpdateService('team', service.team.filter(m => m.id !== id));
   };
 
-  const handleSearchSong = async () => {
-    if (!songQuery.trim()) return;
-    setLoadingSong(LoadingState.LOADING);
-    try {
-      const songData = await fetchSongDetails(songQuery);
-      const newSong: Song = { ...songData, id: crypto.randomUUID() };
-      handleUpdateService('songs', [...service.songs, newSong]);
-      setSongQuery('');
-      setLoadingSong(LoadingState.SUCCESS);
-    } catch (error) {
-      console.error(error);
-      setLoadingSong(LoadingState.ERROR);
+  // --- Lógica de Músicas ---
+  const handleAddSong = () => {
+    if (!songTitle.trim() || !songContent.trim()) {
+        alert("Título e Cifra são obrigatórios.");
+        return;
     }
-  };
 
-  const handleGetSuggestions = async () => {
-      if(!suggestionTheme) return;
-      setLoadingSuggestions(true);
-      const res = await suggestSetlist(suggestionTheme);
-      setSuggestions(res);
-      setLoadingSuggestions(false);
-  }
+    const newSong: Song = {
+        id: crypto.randomUUID(),
+        title: songTitle,
+        artist: songArtist || 'Desconhecido',
+        key: songKey || 'C',
+        bpm: songBpm || '0',
+        content: songContent
+    };
+
+    handleUpdateService('songs', [...service.songs, newSong]);
+    
+    // Limpar formulário
+    setSongTitle('');
+    setSongArtist('');
+    setSongKey('');
+    setSongBpm('');
+    setSongContent('');
+    setIsFormOpen(false);
+  };
 
   const handleRemoveSong = (id: string) => {
     handleUpdateService('songs', service.songs.filter(s => s.id !== id));
@@ -182,84 +190,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ service, setService }) =
         {/* Songs Management - Coluna maior */}
         <div className="lg:col-span-7">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                    <Music className="w-5 h-5" />
-                </div>
-                Repertório
-            </h2>
-
-            {/* AI Search Box - Estilo Google */}
-            <div className="mb-8">
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                        <Music className="w-5 h-5" />
                     </div>
-                    <input
-                        type="text"
-                        value={songQuery}
-                        onChange={(e) => setSongQuery(e.target.value)}
-                        placeholder="Pesquisar música (ex: Porque Ele Vive - Harpa)"
-                        className="w-full pl-12 pr-32 py-4 bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 rounded-full shadow-sm focus:ring-0 focus:border-blue-500 dark:focus:border-blue-500 transition-all text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearchSong()}
-                    />
-                    <div className="absolute right-2 top-2">
-                        <Button 
-                            onClick={handleSearchSong} 
-                            isLoading={loadingSong === LoadingState.LOADING}
-                            disabled={!songQuery}
-                            className="rounded-full px-6"
-                        >
-                            {loadingSong === LoadingState.LOADING ? '' : 'Adicionar'}
+                    Repertório
+                </h2>
+                <Button 
+                    onClick={() => setIsFormOpen(!isFormOpen)} 
+                    variant={isFormOpen ? "secondary" : "primary"}
+                    className="text-sm px-3 py-2"
+                >
+                    {isFormOpen ? 'Cancelar' : 'Adicionar Música'}
+                </Button>
+            </div>
+
+            {/* Manual Song Form */}
+            {isFormOpen && (
+                <div className="bg-gray-50 dark:bg-slate-800/50 p-6 rounded-xl border border-blue-100 dark:border-slate-700 mb-8 animate-in slide-in-from-top-4">
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4 flex items-center gap-2">
+                        <FileText className="w-4 h-4" /> Nova Música
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Título</label>
+                            <input 
+                                value={songTitle}
+                                onChange={e => setSongTitle(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Nome da música"
+                            />
+                        </div>
+                        <div className="col-span-2 md:col-span-1">
+                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Artista</label>
+                            <input 
+                                value={songArtist}
+                                onChange={e => setSongArtist(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Cantor ou Banda"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Tom</label>
+                            <input 
+                                value={songKey}
+                                onChange={e => setSongKey(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Ex: G, Cm"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">BPM</label>
+                            <input 
+                                type="number"
+                                value={songBpm}
+                                onChange={e => setSongBpm(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Ex: 70"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Letra e Cifra</label>
+                        <textarea 
+                            value={songContent}
+                            onChange={e => setSongContent(e.target.value)}
+                            className="w-full h-48 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 custom-scrollbar resize-none"
+                            placeholder="Cole a cifra aqui..."
+                        />
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                        <Button variant="ghost" onClick={() => setIsFormOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleAddSong}>
+                            <Save className="w-4 h-4" /> Salvar Música
                         </Button>
                     </div>
                 </div>
-                {loadingSong === LoadingState.ERROR && (
-                    <p className="mt-2 text-red-500 text-sm px-4">Falha ao buscar. Tente novamente.</p>
-                )}
-            </div>
+            )}
             
-            {/* AI Suggestion */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-slate-800 dark:to-slate-800/50 p-4 rounded-xl border border-blue-100 dark:border-slate-700 mb-6">
-                 <div className="flex items-center gap-2 mb-3">
-                     <Wand2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                     <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Assistente de Repertório</p>
-                 </div>
-                 <div className="flex gap-2">
-                    <input 
-                        className="flex-1 px-3 py-2 text-sm border border-white dark:border-slate-600 bg-white/80 dark:bg-slate-700 rounded-lg focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900 outline-none dark:text-white"
-                        placeholder="Tema (ex: Santa Ceia, Páscoa)"
-                        value={suggestionTheme}
-                        onChange={(e) => setSuggestionTheme(e.target.value)}
-                    />
-                    <button 
-                        onClick={handleGetSuggestions}
-                        disabled={loadingSuggestions || !suggestionTheme}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 shadow-sm disabled:opacity-50"
-                    >
-                        {loadingSuggestions ? 'Pensando...' : 'Sugerir'}
-                    </button>
-                 </div>
-                 {suggestions.length > 0 && (
-                     <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2">
-                         {suggestions.map((s, i) => (
-                             <button 
-                                key={i} 
-                                onClick={() => setSongQuery(s)}
-                                className="text-xs bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-full border border-purple-100 dark:border-slate-600 hover:border-purple-300 dark:hover:border-purple-500 hover:text-purple-700 dark:hover:text-purple-300 hover:shadow-sm transition-all"
-                             >
-                                {s}
-                             </button>
-                         ))}
-                     </div>
-                 )}
-            </div>
-
             <div className="space-y-3">
-              {service.songs.length === 0 && (
+              {service.songs.length === 0 && !isFormOpen && (
                   <div className="text-center py-10 border-2 border-dashed border-gray-100 dark:border-slate-700 rounded-xl">
                       <Music className="w-12 h-12 text-gray-200 dark:text-slate-700 mx-auto mb-2" />
                       <p className="text-gray-400 dark:text-gray-500 text-sm">O repertório está vazio.</p>
+                      <button onClick={() => setIsFormOpen(true)} className="text-blue-500 hover:underline text-sm mt-2">Cadastrar primeira música</button>
                   </div>
               )}
               {service.songs.map((song, index) => (
