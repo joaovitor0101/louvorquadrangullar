@@ -7,8 +7,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Garante que process.env.API_KEY funcione no build do Vite
-      'process.env.API_KEY': JSON.stringify(env.API_KEY)
+      // Polyfill simples para o objeto process.env para evitar crash se acessado diretamente
+      'process.env': {},
+      // Substituição direta da chave específica
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
     }
   }
 })
