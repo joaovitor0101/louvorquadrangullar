@@ -1,0 +1,5 @@
+{
+  "name": "Gestor de Louvor",
+  "description": "Uma aplicação para administração de louvores, escalas de músicos e visualização de cifras para igrejas, integrada com IA para geração de conteúdo.",
+  "requestFramePermissions": []
+}
